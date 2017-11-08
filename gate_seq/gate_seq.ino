@@ -1,3 +1,10 @@
+/*
+ * TODO:
+ * - Randomise start
+ * - Cap time at 10 seconds
+ * - Don't measure distance while playing audio - it's unreliable
+ */
+
 #include <SD.h>
 #include <TMRpcm.h>
 
@@ -10,6 +17,8 @@ const int PIN_G = 5;
 const int PIN_PZ = 9;
 const int PIN_SD_CS = 10;
 
+const int BEAM_BREAK_MIN_DURATION = 50; // Milliseconds
+
 enum {
   STATE_TIMING,
   STATE_BEAM_BROKEN,
@@ -21,6 +30,7 @@ TMRpcm tmrpcm; // This needs to be global, otherwise resetting the Arduino fails
 int state;
 int thresh_dist = 400;
 unsigned long broken_beam_ms;
+unsigned long timing_start_ms;
 
 void setup() {
   pinMode(PIN_R, OUTPUT);
@@ -51,8 +61,7 @@ void setup() {
   tmrpcm.quality(1);
   tmrpcm.loop(0);
 
-  Serial.println("Playing...");
-
+  Serial.println("OK riders. Random start.");
   tmrpcm.play((char*)"RANDOM.WAV");
   
   // Calibrate by measuring average distance for n seconds
@@ -75,11 +84,12 @@ void setup() {
   Serial.print("Threshold distance: ");
   Serial.println(thresh_dist);
 
+  Serial.println("Riders ready. Watch the gate.");
   tmrpcm.play((char*)"READY.WAV");
   
   delay(3000);
 
-  show_start_light(PIN_R);
+ show_start_light(PIN_R);
   tmrpcm.play((char*)"T_LIGHT.WAV");
   delay(120);
   
@@ -91,10 +101,17 @@ void setup() {
   tmrpcm.play((char*)"T_LIGHT.WAV");
   delay(120);
 
+  Serial.println("Green and gate drop");
   show_start_light(PIN_G);
   tmrpcm.play((char*)"T_GATE.WAV");
-  delay(2250);
+  timing_start_ms = millis();
 
+  // Wait till finised playing audio before timing to ensure consistent usonic signal
+  //while (tmrpcm.isPlaying()) {
+  //  delay(10);
+  //}
+
+  Serial.println("Timer active");
   state = STATE_TIMING;
 }
 
@@ -102,41 +119,59 @@ void loop() {
   if (STATE_TIMING == state) {
     int dist = measure_distance();
   
-    Serial.print("Distance: ");
-    Serial.println(dist);
+    //Serial.print("Distance: ");
+    //Serial.println(dist);
       
     if (dist <= thresh_dist) {
       broken_beam_ms = millis();
       state = STATE_BEAM_BROKEN;
       Serial.println("Beam broken");
+      Serial.print("Distance: ");
+      Serial.println(dist);
+  
     }
+
+    delay(10);
   }
   else if (STATE_BEAM_BROKEN == state) {
     int dist = measure_distance();
 
-    Serial.print("Distance: ");
-    Serial.println(dist);
-     if (dist > thresh_dist) {
+    if (dist > thresh_dist) {
       Serial.println("Beam lost");
       state = STATE_TIMING;
       }
-      else if ((millis() - broken_beam_ms) > 100) {
+      else if ((millis() - broken_beam_ms) >= BEAM_BREAK_MIN_DURATION) {
         // We're done
-        tmrpcm.play((char*)"T_LIGHT.WAV");
+        // Calculate time taken
+        unsigned long time_taken_ms = broken_beam_ms - timing_start_ms;
+
+        // Format as seconds
+        String seconds = String(time_taken_ms / 1000.0, 3);
+
+        Serial.print("Finished! Time taken = ");
+        Serial.println(seconds);
+
+        tmrpcm.play((char*)"DING.WAV");
   
         digitalWrite(PIN_R, HIGH);
         digitalWrite(PIN_Y1, HIGH);
         digitalWrite(PIN_Y2, HIGH);
         digitalWrite(PIN_G, HIGH);
   
-        delay(500);
-  
         show_start_light(-1);
+
+        while (tmrpcm.isPlaying()) {
+          delay(10);
+        }
+
+        // Output how long we took
+        speak_seconds(seconds);
   
         state = STATE_DONE;
       }
       else {
         // Beam is broken. Wait a little longer
+        delay(10);
       }
   }
   else {
@@ -151,5 +186,25 @@ void show_start_light(int light)
   digitalWrite(PIN_Y1, light == PIN_Y1 ? HIGH : LOW);
   digitalWrite(PIN_Y2, light == PIN_Y2 ? HIGH : LOW);
   digitalWrite(PIN_G, light == PIN_G ? HIGH : LOW);
+}
+
+void speak_seconds(String seconds)
+{
+  for (int i = 0;i < seconds.length();i++) {
+    char c = seconds.c_str()[i];
+
+    if (c >= '0' && c <= '9') {
+      String fname = String(c);
+      fname.concat(".WAV");
+      tmrpcm.play((char*)fname.c_str());      
+    }
+    else if (c == '.') {
+      tmrpcm.play((char*)"POINT.WAV");
+    }
+    while (tmrpcm.isPlaying()) {
+      delay(10);
+    } 
+  }
+  tmrpcm.play((char*)"SECONDS.WAV");
 }
 
