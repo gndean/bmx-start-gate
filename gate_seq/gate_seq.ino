@@ -14,7 +14,6 @@
 #include <SD.h>
 #include <TMRpcm.h>
 #include <TM1637.h>
-//#include <TM1637Display.h>
 
 const int PIN_UTRIG = 4;
 const int PIN_UECHO = 2;
@@ -47,13 +46,13 @@ enum {
   LIGHT_FINISH
 };
 
-TMRpcm tmrpcm; // This needs to be global, otherwise resetting the Arduino fails to play audio
-TM1637 segment(PIN_SEGMENT_CLK,PIN_SEGMENT_DIO);
-
 #ifdef USE_NEOSTRIP
 #include <Adafruit_NeoPixel.h>
-Adafruit_NeoPixel neo_strip = Adafruit_NeoPixel(8, A0, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel neo_strip = Adafruit_NeoPixel(8, 6, NEO_GRB + NEO_KHZ800);
 #endif // USE_NEOSTRIP
+
+TMRpcm tmrpcm; // This needs to be global, otherwise resetting the Arduino fails to play audio
+TM1637 segment(PIN_SEGMENT_CLK,PIN_SEGMENT_DIO);
 
 int state;
 int thresh_dist = 400;
@@ -71,17 +70,16 @@ void setup() {
   pinMode(PIN_UTRIG, OUTPUT);
   pinMode(PIN_UECHO, INPUT);
 
-  Serial.begin(9600);
-
   segment.set(7);//BRIGHT_TYPICAL = 2,BRIGHT_DARKEST = 0,BRIGHTEST = 7;
   segment.init();
   segment.clearDisplay();
-  
+
 #ifdef USE_NEOSTRIP
   neo_strip.begin();
   neo_strip.show();
 #endif // USE_NEOSTRIP
 
+  Serial.begin(9600);
 
   while (!Serial) {
     ; // wait for serial port to connect. Needed for native USB port only
@@ -187,11 +185,16 @@ void loop() {
         unsigned long time_taken_ms = broken_beam_ms - timing_start_ms;
 
         // Format as seconds
-        double time_taken_f = time_taken_ms / 1000.0;
-        String seconds = String(time_taken_f, 2);
+        String seconds = String(time_taken_ms / 1000.0, 2);
 
         // Show on display
-        segment.display(time_taken_f);
+        int8_t disp[4];
+        disp[0] = 17; // space
+        disp[1] = seconds.c_str()[0] - '0';
+        disp[2] = seconds.c_str()[2] - '0';
+        disp[3] = seconds.c_str()[3] - '0';
+        segment.point(true);                   
+        segment.display(disp);
 
         Serial.print("Finished! Time taken = ");
         Serial.println(seconds);
