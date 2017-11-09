@@ -3,6 +3,7 @@
  * - Randomise start
  * - Cap time at 10 seconds
  * - Don't measure distance while playing audio - it's unreliable
+ * - Have distance threshold set via pot. Setting pot to 0 uses fixed distance (2m, say)
  */
 
 #include <SD.h>
@@ -102,6 +103,7 @@ void setup() {
   delay(120);
 
   Serial.println("Green and gate drop");
+  tmrpcm.quality(0); // Drop quality now to minimise interference with usonic sensor timing
   show_start_light(PIN_G);
   tmrpcm.play((char*)"T_GATE.WAV");
   timing_start_ms = millis();
@@ -146,23 +148,27 @@ void loop() {
         unsigned long time_taken_ms = broken_beam_ms - timing_start_ms;
 
         // Format as seconds
-        String seconds = String(time_taken_ms / 1000.0, 3);
+        String seconds = String(time_taken_ms / 1000.0, 2);
 
         Serial.print("Finished! Time taken = ");
         Serial.println(seconds);
 
-        tmrpcm.play((char*)"DING.WAV");
-  
+        // Light up start lights
         digitalWrite(PIN_R, HIGH);
         digitalWrite(PIN_Y1, HIGH);
         digitalWrite(PIN_Y2, HIGH);
         digitalWrite(PIN_G, HIGH);
-  
-        show_start_light(-1);
 
+        // We can switch back to full quality now
+        tmrpcm.quality(1);
+        tmrpcm.play((char*)"DING.WAV");
+        
         while (tmrpcm.isPlaying()) {
           delay(10);
         }
+
+        // Clear start lights
+        show_start_light(-1);
 
         // Output how long we took
         speak_seconds(seconds);
