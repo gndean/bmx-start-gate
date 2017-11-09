@@ -1,3 +1,7 @@
+//#define USE_LEDS 1
+#define USE_NEOSTRIP 1
+
+
 /*
  * TODO:
  * - Randomise start
@@ -9,14 +13,16 @@
 #include <SD.h>
 #include <TMRpcm.h>
 
-const int PIN_UTRIG = 3;
+const int PIN_UTRIG = 4;
 const int PIN_UECHO = 2;
+const int PIN_PZ = 9;
+const int PIN_SD_CS = 10;
+#ifdef USE_LEDS
 const int PIN_R = 8;
 const int PIN_Y1 = 7;
 const int PIN_Y2 = 6;
 const int PIN_G = 5;
-const int PIN_PZ = 9;
-const int PIN_SD_CS = 10;
+#endif // USE_LEDS
 
 const int BEAM_BREAK_MIN_DURATION = 50; // Milliseconds
 
@@ -26,7 +32,21 @@ enum {
   STATE_DONE
 };
 
+enum {
+  LIGHT_ALLOFF,
+  LIGHT_R,
+  LIGHT_Y1,
+  LIGHT_Y2,
+  LIGHT_G,
+  LIGHT_FINISH
+};
+
 TMRpcm tmrpcm; // This needs to be global, otherwise resetting the Arduino fails to play audio
+
+#ifdef USE_NEOSTRIP
+#include <Adafruit_NeoPixel.h>
+Adafruit_NeoPixel neo_strip = Adafruit_NeoPixel(8, A0, NEO_GRB + NEO_KHZ800);
+#endif // USE_NEOSTRIP
 
 int state;
 int thresh_dist = 400;
@@ -34,14 +54,21 @@ unsigned long broken_beam_ms;
 unsigned long timing_start_ms;
 
 void setup() {
+#ifdef USE_LEDS
   pinMode(PIN_R, OUTPUT);
   pinMode(PIN_Y1, OUTPUT);
   pinMode(PIN_Y2, OUTPUT);
   pinMode(PIN_G, OUTPUT);
+#endif // USE_LEDS
   pinMode(PIN_PZ, OUTPUT);
   pinMode(PIN_UTRIG, OUTPUT);
   pinMode(PIN_UECHO, INPUT);
-  
+
+#ifdef USE_NEOSTRIP
+  neo_strip.begin();
+  neo_strip.show();
+#endif // USE_NEOSTRIP
+
   Serial.begin(9600);
 
   while (!Serial) {
@@ -90,21 +117,21 @@ void setup() {
   
   delay(3000);
 
- show_start_light(PIN_R);
+  show_start_light(LIGHT_R);
   tmrpcm.play((char*)"T_LIGHT.WAV");
   delay(120);
   
-  show_start_light(PIN_Y1);
+  show_start_light(LIGHT_Y1);
   tmrpcm.play((char*)"T_LIGHT.WAV");
   delay(120);
 
-  show_start_light(PIN_Y2);
+  show_start_light(LIGHT_Y2);
   tmrpcm.play((char*)"T_LIGHT.WAV");
   delay(120);
 
   Serial.println("Green and gate drop");
   tmrpcm.quality(0); // Drop quality now to minimise interference with usonic sensor timing
-  show_start_light(PIN_G);
+  show_start_light(LIGHT_G);
   tmrpcm.play((char*)"T_GATE.WAV");
   timing_start_ms = millis();
 
@@ -154,10 +181,7 @@ void loop() {
         Serial.println(seconds);
 
         // Light up start lights
-        digitalWrite(PIN_R, HIGH);
-        digitalWrite(PIN_Y1, HIGH);
-        digitalWrite(PIN_Y2, HIGH);
-        digitalWrite(PIN_G, HIGH);
+        show_start_light(LIGHT_FINISH);
 
         // We can switch back to full quality now
         tmrpcm.quality(1);
@@ -168,7 +192,7 @@ void loop() {
         }
 
         // Clear start lights
-        show_start_light(-1);
+        show_start_light(LIGHT_ALLOFF);
 
         // Output how long we took
         speak_seconds(seconds);
@@ -188,10 +212,39 @@ void loop() {
 
 void show_start_light(int light)
 {
-  digitalWrite(PIN_R, light == PIN_R ? HIGH : LOW);
-  digitalWrite(PIN_Y1, light == PIN_Y1 ? HIGH : LOW);
-  digitalWrite(PIN_Y2, light == PIN_Y2 ? HIGH : LOW);
-  digitalWrite(PIN_G, light == PIN_G ? HIGH : LOW);
+#ifdef USE_LEDS
+  if (LIGHT_FINISH == light) {
+    digitalWrite(PIN_R, HIGH);
+    digitalWrite(PIN_Y1, HIGH);
+    digitalWrite(PIN_Y2, HIGH);
+    digitalWrite(PIN_G, HIGH);
+  }
+  else {
+    digitalWrite(PIN_R, light == LIGHT_R ? HIGH : LOW);
+    digitalWrite(PIN_Y1, light == LIGHT_Y1 ? HIGH : LOW);
+    digitalWrite(PIN_Y2, light == LIGHT_Y2 ? HIGH : LOW);
+    digitalWrite(PIN_G, light == LIGHT_G ? HIGH : LOW);
+  }
+#endif // USE_LEDS
+
+#ifdef USE_NEOSTRIP
+  if (LIGHT_FINISH == light) {
+    for (int i = 0;i < 8;i++) {
+      neo_strip.setPixelColor(i, 0, 255, 0);
+    }
+  }
+  else {
+    neo_strip.setPixelColor(7, light == LIGHT_R ? 255 : 0, 0, 0);
+    neo_strip.setPixelColor(6, light == LIGHT_R ? 255 : 0, 0, 0);
+    neo_strip.setPixelColor(5, light == LIGHT_Y1 ? 255 : 0, light == LIGHT_Y1 ? 255 : 0, 0);
+    neo_strip.setPixelColor(4, light == LIGHT_Y1 ? 255 : 0, light == LIGHT_Y1 ? 255 : 0, 0);
+    neo_strip.setPixelColor(3, light == LIGHT_Y2 ? 255 : 0, light == LIGHT_Y2 ? 255 : 0, 0);
+    neo_strip.setPixelColor(2, light == LIGHT_Y2 ? 255 : 0, light == LIGHT_Y2 ? 255 : 0, 0);
+    neo_strip.setPixelColor(1, 0, light == LIGHT_G ? 255 : 0, 0);
+    neo_strip.setPixelColor(0, 0, light == LIGHT_G ? 255 : 0, 0);    
+  }
+  neo_strip.show();
+#endif // USE_NEOSTRIP
 }
 
 void speak_seconds(String seconds)
