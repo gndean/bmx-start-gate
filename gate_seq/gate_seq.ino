@@ -6,9 +6,11 @@
 /*
  * TODO:
  * - Randomise start
+ * - Support start button and cancel button
  * - Cap time at 10 seconds
  * - Don't measure distance while playing audio - it's unreliable
- * - Have distance threshold set via pot. Setting pot to 0 uses fixed distance (2m, say)
+ * - Support config
+ *   - Distance threshold
  */
 
 #include <SD.h>
@@ -79,6 +81,8 @@ void setup() {
   neo_strip.show();
 #endif // USE_NEOSTRIP
 
+  randomSeed(analogRead(A5) + analogRead(A4) + analogRead(A3) + analogRead(A2) + analogRead(A1) + analogRead(A0));
+
   Serial.begin(9600);
 
   while (!Serial) {
@@ -113,6 +117,7 @@ void setup() {
     cnt_dist++;
 
     delay(10);
+    random();
   }
   int avg_dist = total_dist / cnt_dist;
   thresh_dist = avg_dist * 2 / 3;
@@ -124,8 +129,17 @@ void setup() {
 
   Serial.println("Riders ready. Watch the gate.");
   tmrpcm.play((char*)"READY.WAV");
+
+  // Wait till finished talking
+  while (tmrpcm.isPlaying()) {
+    delay(10);
+  }
+  int delay_ms = random(100, 2700);
   
-  delay(3000);
+  Serial.print("Random delay = ");
+  Serial.println(delay_ms);
+  
+  delay(delay_ms);
 
   show_start_light(LIGHT_R);
   tmrpcm.play((char*)"T_LIGHT.WAV");
@@ -146,9 +160,10 @@ void setup() {
   timing_start_ms = millis();
 
   // Wait till finised playing audio before timing to ensure consistent usonic signal
-  //while (tmrpcm.isPlaying()) {
-  //  delay(10);
-  //}
+  while (tmrpcm.isPlaying()) {
+    delay(10);
+  }
+
 
   Serial.println("Timer active");
   state = STATE_TIMING;
