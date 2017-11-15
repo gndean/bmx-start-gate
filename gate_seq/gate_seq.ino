@@ -5,7 +5,6 @@
 
 /*
  * TODO:
- * - Randomise start
  * - Support start button and cancel button
  * - Cap time at 10 seconds
  * - Don't measure distance while playing audio - it's unreliable
@@ -23,6 +22,8 @@ const int PIN_PZ = 9;
 const int PIN_SD_CS = 10;
 const int PIN_SEGMENT_CLK = 7;
 const int PIN_SEGMENT_DIO = 8;
+const int PIN_START_BUTTON = A1;
+const int PIN_RESET_BUTTON = A0;
 
 #ifdef USE_LEDS
 const int PIN_R = 8;
@@ -34,13 +35,15 @@ const int PIN_G = 5;
 const int BEAM_BREAK_MIN_DURATION = 50; // Milliseconds
 
 enum {
+  STATE_WAITING_FOR_START,
+  STATE_START_SEQ,
   STATE_TIMING,
-  STATE_BEAM_BROKEN,
-  STATE_DONE
+  STATE_BEAM_BROKEN
 };
 
 enum {
   LIGHT_ALLOFF,
+  LIGHT_WAIT_START,
   LIGHT_R,
   LIGHT_Y1,
   LIGHT_Y2,
@@ -71,6 +74,8 @@ void setup() {
   pinMode(PIN_PZ, OUTPUT);
   pinMode(PIN_UTRIG, OUTPUT);
   pinMode(PIN_UECHO, INPUT);
+  pinMode(PIN_START_BUTTON, INPUT);
+  pinMode(PIN_RESET_BUTTON, INPUT);
 
   segment.set(7);//BRIGHT_TYPICAL = 2,BRIGHT_DARKEST = 0,BRIGHTEST = 7;
   segment.init();
@@ -103,74 +108,86 @@ void setup() {
   tmrpcm.quality(1);
   tmrpcm.loop(0);
 
-  Serial.println("OK riders. Random start.");
-  tmrpcm.play((char*)"RANDOM.WAV");
-  
-  // Calibrate by measuring average distance for n seconds
-  unsigned long start_ms = millis();
-
-  unsigned long total_dist = 0;
-  int cnt_dist = 0;
-  
-  while ((millis() - start_ms) < 4000) {
-    total_dist += measure_distance();
-    cnt_dist++;
-
-    delay(10);
-    random();
-  }
-  int avg_dist = total_dist / cnt_dist;
-  thresh_dist = avg_dist * 2 / 3;
-
-  Serial.print("Calibrated distance: ");
-  Serial.println(avg_dist);
-  Serial.print("Threshold distance: ");
-  Serial.println(thresh_dist);
-
-  Serial.println("Riders ready. Watch the gate.");
-  tmrpcm.play((char*)"READY.WAV");
-
-  // Wait till finished talking
-  while (tmrpcm.isPlaying()) {
-    delay(10);
-  }
-  int delay_ms = random(100, 2700);
-  
-  Serial.print("Random delay = ");
-  Serial.println(delay_ms);
-  
-  delay(delay_ms);
-
-  show_start_light(LIGHT_R);
-  tmrpcm.play((char*)"T_LIGHT.WAV");
-  delay(120);
-  
-  show_start_light(LIGHT_Y1);
-  tmrpcm.play((char*)"T_LIGHT.WAV");
-  delay(120);
-
-  show_start_light(LIGHT_Y2);
-  tmrpcm.play((char*)"T_LIGHT.WAV");
-  delay(120);
-
-  Serial.println("Green and gate drop");
-  tmrpcm.quality(0); // Drop quality now to minimise interference with usonic sensor timing
-  show_start_light(LIGHT_G);
-  tmrpcm.play((char*)"T_GATE.WAV");
-  timing_start_ms = millis();
-
-  // Wait till finised playing audio before timing to ensure consistent usonic signal
-  while (tmrpcm.isPlaying()) {
-    delay(10);
-  }
-
-
-  Serial.println("Timer active");
-  state = STATE_TIMING;
+  state_enter_waiting_for_start();
 }
 
 void loop() {
-  if (STATE_TIMING == state) {
+  if (STATE_WAITING_FOR_START == state) {
+    // Wait for start button
+    if (HIGH == digitalRead(PIN_START_BUTTON)) {
+      Serial.println("Start button pressed");
+      state = STATE_START_SEQ;
+    }
+  }
+  if (STATE_START_SEQ == state) {
+    show_start_light(LIGHT_ALLOFF);
+    Serial.println("OK riders. Random start.");
+    tmrpcm.play((char*)"RANDOM.WAV");
+    
+    // Calibrate by measuring average distance for n seconds
+    unsigned long start_ms = millis();
+  
+    unsigned long total_dist = 0;
+    int cnt_dist = 0;
+    
+    while ((millis() - start_ms) < 4000) {
+      total_dist += measure_distance();
+      cnt_dist++;
+  
+      delay(10);
+      random();
+    }
+    int avg_dist = total_dist / cnt_dist;
+    thresh_dist = avg_dist * 2 / 3;
+  
+    Serial.print("Calibrated distance: ");
+    Serial.println(avg_dist);
+    Serial.print("Threshold distance: ");
+    Serial.println(thresh_dist);
+  
+    Serial.println("Riders ready. Watch the gate.");
+    tmrpcm.play((char*)"READY.WAV");
+  
+    // Wait till finished talking
+    while (tmrpcm.isPlaying()) {
+      delay(10);
+    }
+    int delay_ms = random(100, 2700);
+    
+    Serial.print("Random delay = ");
+    Serial.println(delay_ms);
+    
+    delay(delay_ms);
+  
+    show_start_light(LIGHT_R);
+    tmrpcm.play((char*)"T_LIGHT.WAV");
+    delay(120);
+    
+    show_start_light(LIGHT_Y1);
+    tmrpcm.play((char*)"T_LIGHT.WAV");
+    delay(120);
+  
+    show_start_light(LIGHT_Y2);
+    tmrpcm.play((char*)"T_LIGHT.WAV");
+    delay(120);
+  
+    Serial.println("Green and gate drop");
+    tmrpcm.quality(0); // Drop quality now to minimise interference with usonic sensor timing
+    show_start_light(LIGHT_G);
+    tmrpcm.play((char*)"T_GATE.WAV");
+    timing_start_ms = millis();
+  
+    // Wait till finised playing audio before timing to ensure consistent usonic signal
+    while (tmrpcm.isPlaying()) {
+      delay(10);
+    }
+  
+  
+    Serial.println("Timer active");
+    state = STATE_TIMING;
+  }
+
+  else if (STATE_TIMING == state) {
     int dist = measure_distance();
   
     //Serial.print("Distance: ");
@@ -230,8 +247,9 @@ void loop() {
 
         // Output how long we took
         speak_seconds(seconds);
-  
-        state = STATE_DONE;
+
+        // Back to the waiting state
+        state_enter_waiting_for_start();
       }
       else {
         // Beam is broken. Wait a little longer
@@ -244,6 +262,11 @@ void loop() {
   }
 }
 
+void state_enter_waiting_for_start() {
+  show_start_light(LIGHT_WAIT_START);
+  state = STATE_WAITING_FOR_START;
+}
+
 void show_start_light(int light)
 {
 #ifdef USE_LEDS
@@ -253,6 +276,12 @@ void show_start_light(int light)
     digitalWrite(PIN_Y2, HIGH);
     digitalWrite(PIN_G, HIGH);
   }
+  else if (LIGHT_WAIT_START == light) {
+    digitalWrite(PIN_R, LOW);
+    digitalWrite(PIN_Y1, HIGH);
+    digitalWrite(PIN_Y2, LOW);
+    digitalWrite(PIN_G, LOW);
+   }
   else {
     digitalWrite(PIN_R, light == LIGHT_R ? HIGH : LOW);
     digitalWrite(PIN_Y1, light == LIGHT_Y1 ? HIGH : LOW);
@@ -266,6 +295,11 @@ void show_start_light(int light)
     for (int i = 0;i < 8;i++) {
       neo_strip.setPixelColor(i, 0, 255, 0);
     }
+  }
+  else if (LIGHT_WAIT_START == light) {
+    for (int i = 0;i < 8;i++) {
+      neo_strip.setPixelColor(i, 0, 0, i == 7 ? 255 : 0);
+    }    
   }
   else {
     neo_strip.setPixelColor(7, light == LIGHT_R ? 255 : 0, 0, 0);
