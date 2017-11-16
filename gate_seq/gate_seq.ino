@@ -32,6 +32,8 @@ const int PIN_Y2 = 6;
 const int PIN_G = 5;
 #endif // USE_LEDS
 
+const int NEOPIXEL_BRIGHTNESS = 100; // Setting to >= 200 lead to unreliability - the stick would stop responding
+
 const int BEAM_BREAK_MIN_DURATION = 50; // Milliseconds
 
 enum {
@@ -112,9 +114,11 @@ void setup() {
 }
 
 void loop() {
+  bool test_loop_mode = true;
+  
   if (STATE_WAITING_FOR_START == state) {
     // Wait for start button
-    if (HIGH == digitalRead(PIN_START_BUTTON)) {
+    if (HIGH == digitalRead(PIN_START_BUTTON) || test_loop_mode) {
       Serial.println("Start button pressed");
       state = STATE_START_SEQ;
     }
@@ -193,7 +197,7 @@ void loop() {
     //Serial.print("Distance: ");
     //Serial.println(dist);
       
-    if (dist <= thresh_dist) {
+    if (dist <= thresh_dist || test_loop_mode) {
       broken_beam_ms = millis();
       state = STATE_BEAM_BROKEN;
       Serial.println("Beam broken");
@@ -207,11 +211,11 @@ void loop() {
   else if (STATE_BEAM_BROKEN == state) {
     int dist = measure_distance();
 
-    if (dist > thresh_dist) {
+    if (dist > thresh_dist && (!test_loop_mode)) {
       Serial.println("Beam lost");
       state = STATE_TIMING;
       }
-      else if ((millis() - broken_beam_ms) >= BEAM_BREAK_MIN_DURATION) {
+      else if (test_loop_mode || ((millis() - broken_beam_ms) >= BEAM_BREAK_MIN_DURATION)) {
         // We're done
         // Calculate time taken
         unsigned long time_taken_ms = broken_beam_ms - timing_start_ms;
@@ -240,6 +244,10 @@ void loop() {
         
         while (tmrpcm.isPlaying()) {
           delay(10);
+        }
+
+        if (test_loop_mode) {
+          delay(5000);
         }
 
         // Clear start lights
@@ -291,25 +299,27 @@ void show_start_light(int light)
 #endif // USE_LEDS
 
 #ifdef USE_NEOSTRIP
+  int b = NEOPIXEL_BRIGHTNESS;
+
   if (LIGHT_FINISH == light) {
     for (int i = 0;i < 8;i++) {
-      neo_strip.setPixelColor(i, 0, 255, 0);
+      neo_strip.setPixelColor(i, 0, b, 0);
     }
   }
   else if (LIGHT_WAIT_START == light) {
     for (int i = 0;i < 8;i++) {
-      neo_strip.setPixelColor(i, 0, 0, i == 7 ? 255 : 0);
+      neo_strip.setPixelColor(i, 0, 0, i == 7 ? b : 0);
     }    
   }
   else {
-    neo_strip.setPixelColor(7, light == LIGHT_R ? 255 : 0, 0, 0);
-    neo_strip.setPixelColor(6, light == LIGHT_R ? 255 : 0, 0, 0);
-    neo_strip.setPixelColor(5, light == LIGHT_Y1 ? 255 : 0, light == LIGHT_Y1 ? 255 : 0, 0);
-    neo_strip.setPixelColor(4, light == LIGHT_Y1 ? 255 : 0, light == LIGHT_Y1 ? 255 : 0, 0);
-    neo_strip.setPixelColor(3, light == LIGHT_Y2 ? 255 : 0, light == LIGHT_Y2 ? 255 : 0, 0);
-    neo_strip.setPixelColor(2, light == LIGHT_Y2 ? 255 : 0, light == LIGHT_Y2 ? 255 : 0, 0);
-    neo_strip.setPixelColor(1, 0, light == LIGHT_G ? 255 : 0, 0);
-    neo_strip.setPixelColor(0, 0, light == LIGHT_G ? 255 : 0, 0);    
+    neo_strip.setPixelColor(7, light == LIGHT_R ? b : 0, 0, 0);
+    neo_strip.setPixelColor(6, light == LIGHT_R ? b : 0, 0, 0);
+    neo_strip.setPixelColor(5, light == LIGHT_Y1 ? b : 0, light == LIGHT_Y1 ? b : 0, 0);
+    neo_strip.setPixelColor(4, light == LIGHT_Y1 ? b : 0, light == LIGHT_Y1 ? b : 0, 0);
+    neo_strip.setPixelColor(3, light == LIGHT_Y2 ? b : 0, light == LIGHT_Y2 ? b : 0, 0);
+    neo_strip.setPixelColor(2, light == LIGHT_Y2 ? b : 0, light == LIGHT_Y2 ? b : 0, 0);
+    neo_strip.setPixelColor(1, 0, light == LIGHT_G ? b : 0, 0);
+    neo_strip.setPixelColor(0, 0, light == LIGHT_G ? b : 0, 0);    
   }
   neo_strip.show();
 #endif // USE_NEOSTRIP
