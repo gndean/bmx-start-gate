@@ -5,7 +5,6 @@
 
 /*
  * TODO:
- * - Cap time at 10 seconds
  * - Don't measure distance while playing audio - it's unreliable
  * - Add electromagnet / solenoid activation
  * - Support config
@@ -35,6 +34,7 @@ const int PIN_G = 5;
 const int NEOPIXEL_BRIGHTNESS = 100; // Setting to >= 200 lead to unreliability - the stick would stop responding
 
 const int BEAM_BREAK_MIN_DURATION = 50; // Milliseconds
+const int TIMING_TIMEOUT = 10000; // Milliseconds
 
 enum {
   STATE_WAITING_FOR_START,
@@ -208,6 +208,22 @@ void loop() {
   }
 
   else if (STATE_TIMING == state) {
+    // Check if we've timed out
+    if ((millis() - timing_start_ms) > TIMING_TIMEOUT) {
+       Serial.println("Timing timeout");
+       
+       tmrpcm.play((char*)"TIMEOUT.WAV");
+
+       state_enter_waiting_for_start();
+       return;
+    }
+
+    // Allow reset button in this phase
+    if (check_for_reset_button()) {
+      // Abort. State will be reset
+      return;
+    }
+    
     int dist = measure_distance();
   
     //Serial.print("Distance: ");
