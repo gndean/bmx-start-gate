@@ -5,9 +5,9 @@
 
 /*
  * TODO:
- * - Support start button and cancel button
  * - Cap time at 10 seconds
  * - Don't measure distance while playing audio - it's unreliable
+ * - Add electromagnet / solenoid activation
  * - Support config
  *   - Distance threshold
  */
@@ -114,7 +114,7 @@ void setup() {
 }
 
 void loop() {
-  bool test_loop_mode = true;
+  bool test_loop_mode = false;
   
   if (STATE_WAITING_FOR_START == state) {
     // Wait for start button
@@ -140,6 +140,11 @@ void loop() {
   
       delay(10);
       random();
+
+      if (check_for_reset_button()) {
+        // Abort. State will be reset
+        return;
+      }
     }
     int avg_dist = total_dist / cnt_dist;
     thresh_dist = avg_dist * 2 / 3;
@@ -155,17 +160,28 @@ void loop() {
     // Wait till finished talking
     while (tmrpcm.isPlaying()) {
       delay(10);
+      if (check_for_reset_button()) {
+        // Abort. State will be reset
+        return;
+      }
     }
     int delay_ms = random(100, 2700);
     
     Serial.print("Random delay = ");
     Serial.println(delay_ms);
-    
-    delay(delay_ms);
+
+    start_ms = millis();
+    while ((millis() - start_ms) < delay_ms) {
+      delay(10);
+      if (check_for_reset_button()) {
+        // Abort. State will be reset
+        return;
+      }
+    }
   
     show_start_light(LIGHT_R);
     tmrpcm.play((char*)"T_LIGHT.WAV");
-    delay(120);
+    delay(120);             
     
     show_start_light(LIGHT_Y1);
     tmrpcm.play((char*)"T_LIGHT.WAV");
@@ -343,5 +359,18 @@ void speak_seconds(String seconds)
     } 
   }
   tmrpcm.play((char*)"SECONDS.WAV");
+}
+
+// Returns state to waitint for start and returns true if reset button pressed
+bool check_for_reset_button()
+{
+  if (HIGH == digitalRead(PIN_RESET_BUTTON)) {
+    Serial.println("Reset button pressed");
+    tmrpcm.play((char*)"ABORT.WAV");
+    state_enter_waiting_for_start();
+    return true;
+  }
+
+  return false;
 }
 
