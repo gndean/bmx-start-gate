@@ -5,8 +5,8 @@
 
 /*
  * TODO:
- * - Don't measure distance while playing audio - it's unreliable
- * - Add electromagnet / solenoid activation
+ * - Add resetting of digit display
+ * - Add electromagnet / solenoid activation (add activation on first start button press, or auto when gate is primed?)
  * - Support config
  *   - Distance threshold
  */
@@ -200,6 +200,10 @@ void loop() {
     // Wait till finised playing audio before timing to ensure consistent usonic signal
     while (tmrpcm.isPlaying()) {
       delay(10);
+
+      // Format as seconds and show on display
+      String seconds = String((millis() - timing_start_ms) / 1000.0, 2);
+      display_seconds(seconds.c_str());
     }
   
   
@@ -238,6 +242,10 @@ void loop() {
   
     }
 
+    // Format as seconds and show on display
+    String seconds = String((millis() - timing_start_ms) / 1000.0, 2);
+    display_seconds(seconds.c_str());
+
     delay(10);
   }
   else if (STATE_BEAM_BROKEN == state) {
@@ -252,18 +260,10 @@ void loop() {
         // Calculate time taken
         unsigned long time_taken_ms = broken_beam_ms - timing_start_ms;
 
-        // Format as seconds
+        // Format as seconds and show on display
         String seconds = String(time_taken_ms / 1000.0, 2);
-
-        // Show on display
-        int8_t disp[4];
-        disp[0] = 17; // space
-        disp[1] = seconds.c_str()[0] - '0';
-        disp[2] = seconds.c_str()[2] - '0';
-        disp[3] = seconds.c_str()[3] - '0';
-        segment.point(true);                   
-        segment.display(disp);
-
+        display_seconds(seconds.c_str());
+        
         Serial.print("Finished! Time taken = ");
         Serial.println(seconds);
 
@@ -388,5 +388,16 @@ bool check_for_reset_button()
   }
 
   return false;
+}
+
+void display_seconds(const char* seconds_c_str)
+{
+    int8_t disp[4];
+    disp[0] = 17; // space
+    disp[1] = seconds_c_str[0] - '0';
+    disp[2] = seconds_c_str[2] - '0';
+    disp[3] = seconds_c_str[3] - '0';
+    segment.point(true);                   
+    segment.display(disp);
 }
 
