@@ -6,7 +6,6 @@
 /*
  * TODO:
  * - Add resetting of digit display
- * - Add electromagnet / solenoid activation (add activation on first start button press, or auto when gate is primed?)
  * - Support config
  *   - Distance threshold
  */
@@ -23,6 +22,7 @@ const int PIN_SEGMENT_CLK = 7;
 const int PIN_SEGMENT_DIO = 8;
 const int PIN_START_BUTTON = A1;
 const int PIN_RESET_BUTTON = A0;
+const int PIN_MAG_RELAY = A2;
 
 #ifdef USE_LEDS
 const int PIN_R = 8;
@@ -34,10 +34,12 @@ const int PIN_G = 5;
 const int NEOPIXEL_BRIGHTNESS = 100; // Setting to >= 200 lead to unreliability - the stick would stop responding
 
 const int BEAM_BREAK_MIN_DURATION = 50; // Milliseconds
-const int TIMING_TIMEOUT = 10000; // Milliseconds
+const unsigned long TIMING_TIMEOUT = 10000; // Milliseconds
+const unsigned long GATE_ARMED_TIMEOUT = 2L * 60 * 1000; // Milliseconds
 
 enum {
-  STATE_WAITING_FOR_START,
+  STATE_IDLE,
+  STATE_GATE_ARMED,
   STATE_START_SEQ,
   STATE_TIMING,
   STATE_BEAM_BROKEN
@@ -78,6 +80,7 @@ void setup() {
   pinMode(PIN_UECHO, INPUT);
   pinMode(PIN_START_BUTTON, INPUT);
   pinMode(PIN_RESET_BUTTON, INPUT);
+  pinMode(PIN_MAG_RELAY, OUTPUT);
 
   segment.set(7);//BRIGHT_TYPICAL = 2,BRIGHT_DARKEST = 0,BRIGHTEST = 7;
   segment.init();
@@ -110,31 +113,64 @@ void setup() {
   tmrpcm.quality(1);
   tmrpcm.loop(0);
 
-  state_enter_waiting_for_start();
+  state_enter_idle();
 }
 
 void loop() {
   bool test_loop_mode = false;
+
+  if (STATE_IDLE == state) {
+    if (HIGH == digitalRead(PIN_START_BUTTON) || test_loop_mode) {
+      // Debounced wait for release of start button
+      delay(50);
+      if (!test_loop_mode) {
+        while (HIGH == digitalRead(PIN_START_BUTTON)) {
+          delay(10);
+        }
+      }
+      delay(10);
+
+      // Arm the gate after warning sound
+      tmrpcm.play((char*)"GATERISE.WAV");
+
+      // Wait till finished talking
+      while (tmrpcm.isPlaying()) {
+        delay(10);
+      }
+
+      // Remember this time to allow timeout
+      timing_start_ms = millis();
+      
+      digitalWrite(PIN_MAG_RELAY, HIGH);
+      state = STATE_GATE_ARMED;
+    }
+  }
   
-  if (STATE_WAITING_FOR_START == state) {
+  else if (STATE_GATE_ARMED == state) {
     // Wait for start button
     if (HIGH == digitalRead(PIN_START_BUTTON) || test_loop_mode) {
       Serial.println("Start button pressed");
       state = STATE_START_SEQ;
     }
+
+    // Check for timeout of gate armed or reset button
+    if (((millis() - timing_start_ms) > GATE_ARMED_TIMEOUT) || check_for_reset_button()) {
+      tmrpcm.play((char*)"ABORT.WAV");
+      state_enter_idle();
+    }
   }
-  if (STATE_START_SEQ == state) {
+  else if (STATE_START_SEQ == state) {
     show_start_light(LIGHT_ALLOFF);
     Serial.println("OK riders. Random start.");
     tmrpcm.play((char*)"RANDOM.WAV");
     
     // Calibrate by measuring average distance for n seconds
-    unsigned long start_ms = millis();
+    timing_start_ms = millis();
   
     unsigned long total_dist = 0;
     int cnt_dist = 0;
     
-    while ((millis() - start_ms) < 4000) {
+    while ((millis() - timing_start_ms) < 4000) {
       total_dist += measure_distance();
       cnt_dist++;
   
@@ -170,8 +206,8 @@ void loop() {
     Serial.print("Random delay = ");
     Serial.println(delay_ms);
 
-    start_ms = millis();
-    while ((millis() - start_ms) < delay_ms) {
+    timing_start_ms = millis();
+    while ((millis() - timing_start_ms) < delay_ms) {
       delay(10);
       if (check_for_reset_button()) {
         // Abort. State will be reset
@@ -194,6 +230,8 @@ void loop() {
     Serial.println("Green and gate drop");
     tmrpcm.quality(0); // Drop quality now to minimise interference with usonic sensor timing
     show_start_light(LIGHT_G);
+    digitalWrite(PIN_MAG_RELAY, LOW);
+    
     tmrpcm.play((char*)"T_GATE.WAV");
     timing_start_ms = millis();
   
@@ -210,7 +248,6 @@ void loop() {
     Serial.println("Timer active");
     state = STATE_TIMING;
   }
-
   else if (STATE_TIMING == state) {
     // Check if we've timed out
     if ((millis() - timing_start_ms) > TIMING_TIMEOUT) {
@@ -218,7 +255,7 @@ void loop() {
        
        tmrpcm.play((char*)"TIMEOUT.WAV");
 
-       state_enter_waiting_for_start();
+       state_enter_idle();
        return;
     }
 
@@ -289,7 +326,7 @@ void loop() {
         speak_seconds(seconds);
 
         // Back to the waiting state
-        state_enter_waiting_for_start();
+        state_enter_idle();
       }
       else {
         // Beam is broken. Wait a little longer
@@ -302,9 +339,13 @@ void loop() {
   }
 }
 
-void state_enter_waiting_for_start() {
+void state_enter_idle() {
   show_start_light(LIGHT_WAIT_START);
-  state = STATE_WAITING_FOR_START;
+
+  // Release the gate
+  digitalWrite(PIN_MAG_RELAY, LOW);
+  
+  state = STATE_IDLE;
 }
 
 void show_start_light(int light)
@@ -377,13 +418,13 @@ void speak_seconds(String seconds)
   tmrpcm.play((char*)"SECONDS.WAV");
 }
 
-// Returns state to waitint for start and returns true if reset button pressed
+// Returns state to waiting for start and returns true if reset button pressed
 bool check_for_reset_button()
 {
   if (HIGH == digitalRead(PIN_RESET_BUTTON)) {
     Serial.println("Reset button pressed");
     tmrpcm.play((char*)"ABORT.WAV");
-    state_enter_waiting_for_start();
+    state_enter_idle();
     return true;
   }
 
