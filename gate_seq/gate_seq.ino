@@ -16,12 +16,16 @@
 
 const int PIN_UTRIG = 4;
 const int PIN_UECHO = 2;
-const int PIN_PZ = 9;
+const int PIN_SPK = 9;
+const int PIN_NEOPIX = 6;
 const int PIN_SD_CS = 10;
+const int PIN_SD_MISO = 12;
+const int PIN_SD_MOSI = 11;
+const int PIN_SD_SCK = 13;
 const int PIN_SEGMENT_CLK = 7;
 const int PIN_SEGMENT_DIO = 8;
 const int PIN_START_BUTTON = A1;
-const int PIN_RESET_BUTTON = A0;
+const int PIN_CANCEL_BUTTON = A0;
 const int PIN_MAG_RELAY = A2;
 
 #ifdef USE_LEDS
@@ -57,7 +61,7 @@ enum {
 
 #ifdef USE_NEOSTRIP
 #include <Adafruit_NeoPixel.h>
-Adafruit_NeoPixel neo_strip = Adafruit_NeoPixel(8, 6, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel neo_strip = Adafruit_NeoPixel(8, PIN_NEOPIX, NEO_GRB + NEO_KHZ800);
 #endif // USE_NEOSTRIP
 
 TMRpcm tmrpcm; // This needs to be global, otherwise resetting the Arduino fails to play audio
@@ -75,11 +79,11 @@ void setup() {
   pinMode(PIN_Y2, OUTPUT);
   pinMode(PIN_G, OUTPUT);
 #endif // USE_LEDS
-  pinMode(PIN_PZ, OUTPUT);
+  pinMode(PIN_SPK, OUTPUT);
   pinMode(PIN_UTRIG, OUTPUT);
   pinMode(PIN_UECHO, INPUT);
   pinMode(PIN_START_BUTTON, INPUT);
-  pinMode(PIN_RESET_BUTTON, INPUT);
+  pinMode(PIN_CANCEL_BUTTON, INPUT);
   pinMode(PIN_MAG_RELAY, OUTPUT);
 
   segment.set(7);//BRIGHT_TYPICAL = 2,BRIGHT_DARKEST = 0,BRIGHTEST = 7;
@@ -108,7 +112,7 @@ void setup() {
 
   //sd_print_root
   
-  tmrpcm.speakerPin = PIN_PZ;
+  tmrpcm.speakerPin = PIN_SPK;
   tmrpcm.setVolume(5);
   tmrpcm.quality(1);
   tmrpcm.loop(0);
@@ -120,11 +124,11 @@ void loop() {
   bool test_loop_mode = false;
 
   if (STATE_IDLE == state) {
-    if (HIGH == digitalRead(PIN_START_BUTTON) || test_loop_mode) {
+    if (LOW == digitalRead(PIN_START_BUTTON) || test_loop_mode) {
       // Debounced wait for release of start button
       delay(50);
       if (!test_loop_mode) {
-        while (HIGH == digitalRead(PIN_START_BUTTON)) {
+        while (LOW == digitalRead(PIN_START_BUTTON)) {
           delay(10);
         }
       }
@@ -148,7 +152,7 @@ void loop() {
   
   else if (STATE_GATE_ARMED == state) {
     // Wait for start button
-    if (HIGH == digitalRead(PIN_START_BUTTON) || test_loop_mode) {
+    if (LOW == digitalRead(PIN_START_BUTTON) || test_loop_mode) {
       Serial.println("Start button pressed");
       state = STATE_START_SEQ;
     }
@@ -421,7 +425,7 @@ void speak_seconds(String seconds)
 // Returns state to waiting for start and returns true if reset button pressed
 bool check_for_reset_button()
 {
-  if (HIGH == digitalRead(PIN_RESET_BUTTON)) {
+  if (LOW == digitalRead(PIN_CANCEL_BUTTON)) {
     Serial.println("Reset button pressed");
     tmrpcm.play((char*)"ABORT.WAV");
     state_enter_idle();
