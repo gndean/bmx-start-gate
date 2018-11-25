@@ -35,9 +35,9 @@ const int PIN_Y2 = 6;
 const int PIN_G = 5;
 #endif // USE_LEDS
 
-const int NEOPIXEL_BRIGHTNESS = 100; // Setting to >= 200 lead to unreliability - the stick would stop responding
+const int NEOPIXEL_BRIGHTNESS = 200; // Setting to >= 200 lead to unreliability - the stick would stop responding
 
-const int BEAM_BREAK_MIN_DURATION = 50; // Milliseconds
+const int BEAM_BREAK_MIN_DURATION = 20; // Milliseconds
 const unsigned long TIMING_TIMEOUT = 10000; // Milliseconds
 const unsigned long GATE_ARMED_TIMEOUT = 2L * 60 * 1000; // Milliseconds
 
@@ -134,7 +134,9 @@ void loop() {
       }
       delay(10);
 
-      // Arm the gate after warning sound
+      // Arm the gate and play signal
+      digitalWrite(PIN_MAG_RELAY, HIGH);
+      state = STATE_GATE_ARMED;
       tmrpcm.play((char*)"GATERISE.WAV");
 
       // Wait till finished talking
@@ -144,9 +146,6 @@ void loop() {
 
       // Remember this time to allow timeout
       timing_start_ms = millis();
-      
-      digitalWrite(PIN_MAG_RELAY, HIGH);
-      state = STATE_GATE_ARMED;
     }
   }
   
@@ -445,4 +444,5 @@ void display_seconds(const char* seconds_c_str)
     segment.point(true);                   
     segment.display(disp);
 }
+
 
