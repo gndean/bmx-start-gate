@@ -8,9 +8,10 @@ A home project to play around with an Arduino and some woodworking. An automatic
 
 It can all be controlled by the rider and/or via a remote start button.
 
+## Demo video
 [![Demo video](http://i3.ytimg.com/vi/4nqwPcUJndE/hqdefault.jpg)](https://www.youtube.com/watch?v=4nqwPcUJndE)
 
-The main components are
+The main components are:
 
 ## Start ramp
 
@@ -47,10 +48,31 @@ Interfacing with the I/O pins of the Arduino are:
 
 The Arduino nano, connections to the various perhipherals and audio amplifier are built into one bespoke printed circuit board (PCB). Designs for this PCB can be found in the pcb folder and online via the superb [Easy EDA](https://easyeda.com/gndean/BMX_start_gate-e06ff3c585eb44709a94efc5871dbad8 )
 
+### Ultrasonic sensor
+
+The ultrasonic sender and receiver allow the passing a rider to be detected. The Arduino code measures the distance detected from the receiver during the light sequence state and stores this as a reference. During the timing state of the loop it looks for the measured distance to be less than 2/3rds of that measured previously for a contiguous 20ms in order for the beam to be broken. In practice, if the rider is within approx 1.5m of the detector, the timing appears reliable.
+
 ### Audio amplifer and speaker
 
 The audio amplifer takes the output from one of the Arduino pins and amplifies it to drive a speaker, using the 12V rail of the power supply. The amplifier is based on a [TDA2003L-TB5-T](https://www.profusionplc.com/parts/tda2003l-tb5-t) Single Channel amplifier IC and reference circuit.
 
+# Electrics within the ramp
+
+In addition to the electromagnetic door lock, the ramp has two push buttons and an LED. The LED is connected in parallel to the electromagnet and simply indicates when the electromagnet is armed.
+
+A start (green) button arms the electromagnet then when pressed again, initiates the start sequence.
+
+A reset (red) button cancels the start sequence and disarmds the electromagnet.
+
+The ramp and control unit are connected via a length of 4 core cable terminated with [4 pin connectors](https://www.banggood.com/GX164-4Pin-16mm-Aviation-Pug-Male-and-Female-Panel-Metal-Connector-p-925542.html). The 4 wires carry:
+
+* 12 V
+* Ground
+* Start switch signal
+* Reset switch signal
+
+The switches are activated when a connection to ground is made. By placing additional connectors on the ramp and control box, remote switch units can be added to allow the sequence to be controlled by a non-rider.
+
 # Arduino source
 
-The Arduino source in the arduino/gate_seq folder is built with the Arduino Integrate Development Environment (IDE). gate_seq.ino contains the bulk of the source. Read this file to understand the library dependencies, pins used and configuration options.
+The Arduino source in the arduino/gate_seq folder is built with the Arduino Integrated Development Environment (IDE). gate_seq.ino contains the bulk of the source. Read this file to understand the library dependencies, pins used and configuration options.
