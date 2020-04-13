@@ -4,10 +4,10 @@
 
 
 /*
- * TODO:
- * - Add resetting of digit display
- * - Support config
- *   - Distance threshold
+ * This source depends on the following libraries. Install these before building the source.
+ * SD: To read from the SD card. https://www.arduino.cc/en/reference/SD
+ * TMRpcm: To output audio from WAV files on the SD card. https://github.com/TMRh20/TMRpcm
+ * TM1637: To drive the 7-segment display. Note: the exact library you need will depend on the model of display used
  */
 
 #include <SD.h>
@@ -444,5 +444,3 @@ void display_seconds(const char* seconds_c_str)
     segment.point(true);                   
     segment.display(disp);
 }
-
-

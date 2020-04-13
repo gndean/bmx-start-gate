@@ -1,4 +1,4 @@
 Easy EDA (https://easyeda.com/) was used to design the schematics for the electronics, design the PCB and order the PCB units.
 
 The Easy EDA project can be found online and cloned for free at:
-https://easyeda.com/gndean/BMX_start_gate-e06ff3c585eb44709a94efc5871dbad8
+https://easyeda.com/gndean/BMX_start_gate-e06ff3c585eb44709a94efc5871dbad8 
