@@ -17,7 +17,7 @@ The main components are:
 
 This is a wooden structure of approximately 2000mm total length, 500mm height and 680mm width. The frame is built from various rough cut timber pieces and topped with plywood. The gate part is 375mm long and hinges upwards via two heavy duty door hinges. The 375mm gate is tall enough to use the gate with up to 24" wheels. 
 
- I don't have any detailed plans for the ramp itself as I mostly made it up as I went along but there are plans for other similar ramps that can be found on the internet.
+ I don't have any detailed plans for the ramp itself as I mostly made it up as I went along but there are plans for other similar ramps that can be found on the internet. This was my original sketch:
 
  The ramp originally used a manual release mechanism like [this](https://www.youtube.com/watch?v=H2q-nFM49vQ) where the gate catch remains in place by friction caused by applying pressure to the gate. One pressure is released, the catch releases and the gate falls. With practice, a snap back action can be used to release the gate. I soon wanted something a little more advanced though so decided to build an electromagnetic release mechanism.
 
@@ -55,6 +55,10 @@ The ultrasonic sender and receiver allow the passing a rider to be detected. The
 ### Audio amplifer and speaker
 
 The audio amplifer takes the output from one of the Arduino pins and amplifies it to drive a speaker, using the 12V rail of the power supply. The amplifier is based on a [TDA2003L-TB5-T](https://www.profusionplc.com/parts/tda2003l-tb5-t) Single Channel amplifier IC and reference circuit.
+
+### SD card
+
+The micro SD card holds the audio files used for the speaking the measured time. Copy all the files within the sdcard/ folder to a FAT formatted micro SD card.
 
 # Electrics within the ramp
 
