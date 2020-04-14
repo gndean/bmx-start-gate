@@ -18,6 +18,7 @@ The main components are:
 This is a wooden structure of approximately 2000mm total length, 500mm height and 680mm width. The frame is built from various rough cut timber pieces and topped with plywood. The gate part is 375mm long and hinges upwards via two heavy duty door hinges. The 375mm gate is tall enough to use the gate with up to 24" wheels. 
 
  I don't have any detailed plans for the ramp itself as I mostly made it up as I went along but there are plans for other similar ramps that can be found on the internet. This was my original sketch:
+ ![Ramp side](https://raw.githubusercontent.com/gndean/bmx-start-gate/master/images/ramp-side-viewT.JPG)
 
  The ramp originally used a manual release mechanism like [this](https://www.youtube.com/watch?v=H2q-nFM49vQ) where the gate catch remains in place by friction caused by applying pressure to the gate. One pressure is released, the catch releases and the gate falls. With practice, a snap back action can be used to release the gate. I soon wanted something a little more advanced though so decided to build an electromagnetic release mechanism.
 
@@ -26,6 +27,8 @@ This is a wooden structure of approximately 2000mm total length, 500mm height an
 An arm is attached to the gate with the "suction plate" of an electromagnetic door catch attached to the other. The main part of the electromagnet part of the door lock is statically attached to the side of the ramp. When powered by 12V and the gate is lifted such that the suction plate meets the electromagnet, gate is locked in place. The electromagnetic door lock I used has a claimed holding "force" of 180kg when powered by 12V and approx 400mA.
 
 ## Controller unit
+
+![Controller unit](https://raw.githubusercontent.com/gndean/bmx-start-gate/master/images/001-DSC09041T.JPG)
 
 The controller box houses the electronics, display and sensors. The box powered via an external 12V source. 12V is used to drive the electromagnet and the speaker. A voltage regulator board is used to step the voltage down to 5V to drive the Arduino controller and associated electronics.
 
@@ -47,6 +50,8 @@ Interfacing with the I/O pins of the Arduino are:
 * "Start" and "Reset" switches.
 
 The Arduino nano, connections to the various perhipherals and audio amplifier are built into one bespoke printed circuit board (PCB). Designs for this PCB can be found in the pcb folder and online via the superb [Easy EDA](https://easyeda.com/gndean/BMX_start_gate-e06ff3c585eb44709a94efc5871dbad8 )
+
+![PCB inside controller unit](https://raw.githubusercontent.com/gndean/bmx-start-gate/master/images/006-DSC09050T.JPG)
 
 ### Ultrasonic sensor
 
